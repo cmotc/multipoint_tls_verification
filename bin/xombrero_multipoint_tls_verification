@@ -1,0 +1,3 @@
+#! /bin/sh
+
+multipoint_tls_verification $@
