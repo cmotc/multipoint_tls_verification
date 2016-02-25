@@ -105,15 +105,16 @@ while [ $NUM_TESTS != 0 ]; do
 		echo $SSL_RESULT > .tmp_certtest
 		echo $LAST_RESULT > .tmp_lasttest
 		#Diff the certs retrieved from the current and last exit node
-		TEST_DIFF=$(diff .tmp_certtest .tmp_lasttest)
+		TEST_DIFF=$(diff -d .tmp_certtest .tmp_lasttest)
 		if [ ! "$TEST_DIFF" = "" ]; then
 			CUR_TORIP=$(torsocks wget -q -O - "$CHECK_IP" | sed "s@$TRIM_STR_BEGIN@@" | sed "s@$TRIM_STR_END@@")
 			echo "Current Tor IP address $CUR_TORIP"
-			echo "WARNING! A difference was detected between the TLS certificate
-issued by $URL from $LAST_TORIP and $CUR_TORIP, implying that the certificate
-is changing based on the location the site is being accessed from. Please review
-the certificate and the meta-data surrounding how it was retrieved before using
-it." 1>&2
+			echo "Current Tor IP address $LAST_TORIP"
+			echo "WARNING! A difference was detected between the TLS certificate"
+echo "issued by $GET_URL from $LAST_TORIP and $CUR_TORIP, implying that the certificate"
+echo "is changing based on the location the site is being accessed from. Please review"
+echo "the certificate and the meta-data surrounding how it was retrieved before using"
+echo "it." #1>&2
 			#Set SEEMS_SAFE false
 			SEEMS_SAFE=false
 		else
