@@ -86,7 +86,7 @@ LAST_RESULT="init"
 LAST_TORIP=""
 TRIM_STR_BEGIN='<html><head><title>Current IP Check</title></head><body>Current IP Address: '
 TRIM_STR_END='</body></html>'
-while [ $NUM_TESTS > 0 ]; do
+while [ $NUM_TESTS != 0 ]; do
 	#First, get the IP addresses of the site you want to check and the IP
 	#checking service.
 	IP=$(tor-resolve $GET_URL)
