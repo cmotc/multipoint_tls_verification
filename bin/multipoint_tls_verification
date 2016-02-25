@@ -1,5 +1,5 @@
 #! /bin/sh
-
+NUM_TESTS=3
 SEEMS_SAFE=false
 show_help(){
 	echo "###===============---------------------------------===============###
@@ -29,23 +29,31 @@ show_help(){
 compute_num_test(){
 	TMP="$1"
 	OUT=1
-	if [ -z $TMP ]; then
-		case $TMP in
-			"1" || "l" || "low")
-				OUT=1
+	if [ ! -z $TMP ]; then
+		case "$TMP" in
+			1)		OUT=1
 			;;
-			"2")
-				OUT=2
+			low)	OUT=1
 			;;
-			"3" || "m" || "medium")
-				OUT=3
+			l)		OUT=1
 			;;
-			"4")
-				OUT=4
+			2)		OUT=2
 			;;
-			"5" || "h" || "high") 
-				OUT=5
+			3)		OUT=3
 			;;
+			medium)	OUT=3
+			;;
+			m)		OUT=3
+			;;
+			4)		OUT=4
+			;;
+			5)		OUT=5
+			;;
+			high)	OUT=5
+			;;
+			h)		OUT=5
+			;;
+		esac
 	else
 		echo "option -s requires an argument. [1-5 or l, m, h or low, medium, high]"
 		exit 1
@@ -78,29 +86,47 @@ LAST_RESULT="init"
 LAST_TORIP=""
 TRIM_STR_BEGIN='<html><head><title>Current IP Check</title></head><body>Current IP Address: '
 TRIM_STR_END='</body></html>'
-while [[ $NUM_TESTS > 0 ]]; do
+while [ $NUM_TESTS > 0 ]; do
+	#First, get the IP addresses of the site you want to check and the IP
+	#checking service.
 	IP=$(tor-resolve $GET_URL)
-	CHECK_IP=$(tor-resolve http://checkip.dyndns.com/)
+	CHECK_IP=$(tor-resolve checkip.dyndns.com)
+	#Check if this is the first time the loop has been run
 	if [ "$LAST_RESULT" = "init" ]; then
+		#Get an SSL Certificate over tor via torsocks
 		SSL_RESULT=$(torsocks openssl s_client -connect "$IP:443" 2>&1)
 		LAST_RESULT="$SSL_RESULT"
+		LAST_TORIP=$(torsocks wget -q -O - "$CHECK_IP" | sed "s@$TRIM_STR_BEGIN@@" | sed "s@$TRIM_STR_END@@")
+		echo "Current Tor IP address $LAST_TORIP"
 	else
+		#Get an SSL Certificate over tor via torsocks
 		SSL_RESULT=$(torsocks openssl s_client -connect "$IP:443" 2>&1)
-		TEST_DIFF=$(diff <(echo "$TEST_RESULT") <(echo "$LAST_RESULT"))	
+		#Create temp files to diff
+		echo $SSL_RESULT > .tmp_certtest
+		echo $LAST_RESULT > .tmp_lasttest
+		#Diff the certs retrieved from the current and last exit node
+		TEST_DIFF=$(diff .tmp_certtest .tmp_lasttest)
 		if [ ! "$TEST_DIFF" = "" ]; then
-			CUR_TORIP=$(torsocks curl $CHECK_IP | sed "s@$TRIM_STR_BEGIN@@" | sed "s@$TRIM_STR_END@@")
+			CUR_TORIP=$(torsocks wget -q -O - "$CHECK_IP" | sed "s@$TRIM_STR_BEGIN@@" | sed "s@$TRIM_STR_END@@")
+			echo "Current Tor IP address $CUR_TORIP"
 			echo "WARNING! A difference was detected between the TLS certificate
 issued by $URL from $LAST_TORIP and $CUR_TORIP, implying that the certificate
 is changing based on the location the site is being accessed from. Please review
 the certificate and the meta-data surrounding how it was retrieved before using
 it." 1>&2
+			#Set SEEMS_SAFE false
+			SEEMS_SAFE=false
 		else
+			#Cleanup the temp files
+			rm .tmp_certtest .tmp_lasttest
+			#Keep SEEMS_SAFE true
 			SEEMS_SAFE=true
 		fi
+		#Set the next loop's LAST_RESULT
 		LAST_RESULT="$SSL_RESULT"
 	fi
-	LAST_TORIP=$(torsocks curl $CHECK_IP | sed "s@$TRIM_STR_BEGIN@@" | sed "s@$TRIM_STR_END@@")
-	sudo service tor restart
-	$(($NUM_TESTS - 1))
+	LAST_TORIP=$CUR_TORIP #$(torsocks curl $CHECK_IP | sed "s@$TRIM_STR_BEGIN@@" | sed "s@$TRIM_STR_END@@")
+#	sudo service tor restart
+	NUM_TESTS=$(expr $NUM_TESTS - 1)
 done
 echo $SEEMS_SAFE
